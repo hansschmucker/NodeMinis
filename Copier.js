@@ -4,70 +4,77 @@ var chain=require('./chain.js');
 module.exports=function Copier(){};
 
 module.exports.sync=chain(
-	(n,src,dst) => {
-		n.file0=src;
-		n.file1=dst;
-		fs.stat(n.file0, n);
+	//Stat src
+	($,src,dst) => {
+		$.file0=src;
+		$.file1=dst;
+		fs.stat($.file0, $);
 	},
-	(n, err,stat0) => {
-		n.stat0=stat0;
+	//Stat dst
+	($,err,stat0) => {
+		$.stat0=stat0;
 		if(err)
 			console.error("Can't stat source");
 		else
-			fs.stat(n.file1,n);
+			fs.stat($.file1,$);
 	},
-	(n,dStatErr,stat1) => {
-		n.stat1=stat1;
-		n.dStatErr=dStatErr;
-		if(dStatErr || Math.round(n.stat0.mtime.getTime()/30000)!=Math.round(n.stat1.mtime.getTime()/30000)){
-			var reader = fs.createReadStream(n.file0);
-			var writer = fs.createWriteStream(n.file1+".temp");
+	//Copy to temp if mismatch by 30 seconds
+	($,dStatErr,stat1) => {
+		$.stat1=stat1;
+		$.dStatErr=dStatErr;
+		if(dStatErr || Math.round($.stat0.mtime.getTime()/30000)!=Math.round($.stat1.mtime.getTime()/30000)){
+			var reader = fs.createReadStream($.file0);
+			var writer = fs.createWriteStream($.file1+".temp");
 			
 			var pipeHandled=false;
 			reader.on("error",(err)=>{
 				if(!pipeHandled){
 					pipeHandled=true;
-					n(err);
+					$(err);
 				}
 			});
 			writer.on("error",(err)=>{
 				if(!pipeHandled){
 					pipeHandled=true;
-					n(err);
+					$(err);
 				}
 			});
 			writer.on("close",()=>{
 				if(!pipeHandled){
 					pipeHandled=true;
-					n();
+					$();
 				}
 			});
 			reader.pipe(writer);
 		}
 	},
-	(n,err) => {
-		if(n.pipeHandled)
+	//Delete dst
+	($,err) => {
+		if($.pipeHandled)
 			return;
 		
-		n.pipeHandled=true;
-		if(!n.dStatErr)
-			console.log("Time original vs destination: "+Math.round((n.stat0||{}).mtime.getTime()/1000)+" "+Math.round((n.stat1||{}).mtime.getTime()/1000));
+		$.pipeHandled=true;
+		if(!$.dStatErr)
+			console.log("Time original vs destination: "+Math.round(($.stat0||{}).mtime.getTime()/1000)+" "+Math.round(($.stat1||{}).mtime.getTime()/1000));
 		console.log("Date changed. File copied with result: "+(err||"OK"));
 		if(!err)
-			fs.unlink(n.file1,n);
-		else if(n.dStatErr)
-			n();
+			fs.unlink($.file1,$);
+		else if($.dStatErr)
+			$();
 	},
-	(n,err) => {
+	//Rename tmp to dst
+	($,err) => {
 		if(!err)
-			fs.rename(n.file1+".temp",n.file1,n);
+			fs.rename($.file1+".temp",$.file1,$);
 		else
 			console.error("Can't rename temp "+err);
 	},
-	(n,err) => {
-		fs.utimes(n.file1,n.stat0.mtime,n.stat0.atime,n);
+	//Set last modified and access time on dst to src
+	($,err) => {
+		fs.utimes($.file1,$.stat0.mtime,$.stat0.atime,$);
 	},
-	(n,err) => {
+	//Done.
+	($,err) => {
 		if(err)
 			console.error("Can't change file time "+err);
 		else
