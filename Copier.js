@@ -26,24 +26,11 @@ module.exports.sync=chain(
 			var reader = fs.createReadStream($.file0);
 			var writer = fs.createWriteStream($.file1+".temp");
 			
-			var pipeHandled=false;
-			reader.on("error",(err)=>{
-				if(!pipeHandled){
-					pipeHandled=true;
-					$(err);
-				}
-			});
-			writer.on("error",(err)=>{
-				if(!pipeHandled){
-					pipeHandled=true;
-					$(err);
-				}
-			});
+			$.pipeHandled=false;
+			reader.on("error",$);
+			writer.on("error",$);
 			writer.on("close",()=>{
-				if(!pipeHandled){
-					pipeHandled=true;
-					$();
-				}
+				$();
 			});
 			reader.pipe(writer);
 		}
